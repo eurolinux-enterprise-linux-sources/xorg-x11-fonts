@@ -26,7 +26,7 @@
 Summary:	X.Org X11 fonts
 Name:		xorg-x11-fonts
 Version:	7.2
-Release:	9.1%{?dist}
+Release:	11%{?dist}
 License:	MIT and Lucida and Public Domain
 Group:		User Interface/X
 URL:		http://www.x.org
@@ -84,7 +84,7 @@ BuildRequires: autoconf
 BuildRequires: pkgconfig
 BuildRequires: xorg-x11-util-macros
 # The font-utils dep here is to ensure we have a fontutil.pc file which
-# defines the 'fontdir' variable.
+# defines the 'fontrootdir' variable.
 BuildRequires: font-utils >= 1.0.2-1
 # FIXME: fontconfig is needed only because the upstream Makefiles invoke
 # fc-cache at build time.  This is totally useless, because we do not ship
@@ -331,6 +331,7 @@ Contains a set of Cyrillic fonts.
 #--------------------------------------------------------------------------
 %build
 pushd encodings-*
+autoconf
 %configure
 make
 popd
@@ -343,7 +344,7 @@ for dir in font-*; do
     # get considered to be included in upstream 7.1 release in which case I'll
     # turn it into a series of diffs instead and submit it.  For now tho, perl
     # is my friend.  -- mharris
-    perl -p -i -e 's#(^DEFAULT(_|_OTF|_TTF)FONTDIR=)\${libdir}/X11/fonts#\1\$(pkg-config --variable=fontdir fontutil)#' configure.ac
+    perl -p -i -e 's#(^DEFAULT(_|_OTF|_TTF)FONTDIR=)\${libdir}/X11/fonts#\1%{_x11fontdir}#' configure.ac
     autoconf
     %configure \
 	--disable-iso8859-3 --disable-iso8859-4 --disable-iso8859-6 \
@@ -369,21 +370,6 @@ mkdir -p $RPM_BUILD_ROOT%{_catalogue}
 for f in misc:unscaled:pri=10 75dpi:unscaled:pri=20 100dpi:unscaled:pri=30 Type1 TTF OTF cyrillic; do
     ln -fs %{_x11fontdir}/${f%%%%:*} $RPM_BUILD_ROOT%{_catalogue}/xorg-x11-fonts-$f
 done
-
-# Generate the encodings.dir files in the encodings directories during
-# install time to work around bugs in upstream Makefiles.  This is more
-# consistent with how we generate fonts.dir files anyway.  Fixes bugs:
-# https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=173875
-# https://bugs.freedesktop.org/show_bug.cgi?id=6028
-{
-    ENCODINGSDIR=$RPM_BUILD_ROOT%{_datadir}/X11/fonts/encodings
-    pushd "${ENCODINGSDIR}" &> /dev/null
-    mkfontscale -n -e "${ENCODINGSDIR}" -e "${ENCODINGSDIR}/large"
-    sed -i "s@$RPM_BUILD_ROOT@@" encodings.dir
-    sed -i "s@$RPM_BUILD_ROOT@@" large/encodings.dir
-    popd &> /dev/null
-}
-
 
 # Create fake %ghost files for file manifests.
 {
@@ -421,6 +407,19 @@ done
   FONTDIR=%{_x11fontdir}/misc
   mkfontdir $FONTDIR 
   fc-cache $FONTDIR
+
+# Generate the encodings.dir files in the encodings directories during
+# install time to work around bugs in upstream Makefiles.  This is more
+# consistent with how we generate fonts.dir files anyway.  Fixes bugs:
+# https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=173875
+# https://bugs.freedesktop.org/show_bug.cgi?id=6028
+{
+    ENCODINGSDIR=%{_datadir}/X11/fonts/encodings
+    pushd "${ENCODINGSDIR}" &> /dev/null
+    mkfontscale -n -e "${ENCODINGSDIR}" -e "${ENCODINGSDIR}/large"
+    popd &> /dev/null
+}
+
 }
 
 %postun misc
@@ -484,9 +483,11 @@ done
 
 %post 75dpi
 mkfontdir %{_x11fontdir}/75dpi
+fc-cache  %{_x11fontdir}/75dpi
 
 %post 100dpi
 mkfontdir %{_x11fontdir}/100dpi
+fc-cache  %{_x11fontdir}/75dpi
 
 %post ISO8859-1-75dpi
 mkfontdir %{_x11fontdir}/75dpi
@@ -1158,6 +1159,19 @@ rm -rf $RPM_BUILD_ROOT
 %ghost %verify(not md5 size mtime) %{_x11fontdir}/cyrillic/fonts.cache-*
 
 %changelog
+* Fri Jan 09 2015 Peter Hutterer <peter.hutterer@redhat.com> 7.2-11
+- Revert previous commit, pkg-config gives us /usr/share/fonts/X11, not
+  /usr/share/X11/fonts which breaks the build on RHEL6 (#1089118)
+- Replace pkgconfig call with hardcoded path to _x11fontdir, same in the
+  patches
+- Run autoreconf for encodings to pick up the changed path
+
+* Thu Jan 08 2015 Peter Hutterer <peter.hutterer@redhat.com> 7.2-10
+- Fix pkgconfig variable usage, it's fontrootdir, not fontdir. Same applies
+  to the patches.
+- Move generation of encodings.dir back to post, over time they moved to
+  install despite the files being ghosted (#1089118)
+
 * Mon Nov 30 2009 Dennis Gregorovic <dgregor@redhat.com> - 7.2-9.1
 - Rebuilt for RHEL 6
 
