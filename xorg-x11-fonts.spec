@@ -26,7 +26,7 @@
 Summary:	X.Org X11 fonts
 Name:		xorg-x11-fonts
 Version:	7.5
-Release:	8%{?dist}
+Release:	9%{?dist}
 License:	MIT and Lucida and Public Domain
 Group:		User Interface/X
 URL:		http://www.x.org
@@ -1057,6 +1057,9 @@ rm -rf $RPM_BUILD_ROOT
 %ghost %verify(not md5 size mtime) %{_x11fontdir}/cyrillic/fonts.cache-*
 
 %changelog
+* Fri Dec 27 2013 Daniel Mach <dmach@redhat.com> - 7.5-9
+- Mass rebuild 2013-12-27
+
 * Thu Mar 07 2013 Dave Airlie <airlied@redhat.com> 7.5-8
 - autoreconf for aarch64
 
